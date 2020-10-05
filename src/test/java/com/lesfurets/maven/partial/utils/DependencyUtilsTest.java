@@ -2,7 +2,11 @@ package com.lesfurets.maven.partial.utils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -102,6 +106,14 @@ public class DependencyUtilsTest {
      * </pre>
      */
     private MavenProject m8;
+    /**
+     * Maven project com.test:m8:1.0-SNAPSHOT
+     *
+     * <pre>
+     *
+     * </pre>
+     */
+    private MavenProject m9;
 
     @Before
     public void setUp() {
@@ -115,6 +127,7 @@ public class DependencyUtilsTest {
         m6 = newMavenProject(GROUP_ID, "m6", VERSION, parent);
         m7 = newMavenProject(GROUP_ID, "m7", VERSION, parent);
         m8 = newMavenProject(GROUP_ID, "m8", VERSION_NEXT, parent);
+        m9 = newMavenProject(GROUP_ID, "m9", VERSION, null);
 
         parent.setDependencies(Arrays.asList(newDependency(m1)));
         m1.setDependencies(Arrays.asList(newDependency(m3), newDependency(m4)));
@@ -122,7 +135,7 @@ public class DependencyUtilsTest {
         m5.setDependencies(Arrays.asList(newDependency(m2)));
         m6.setDependencies(Arrays.asList(newDependency(m7), newDependency(m8)));
 
-        allProjects = Arrays.asList(parent, m1, m2, m3, m4, m5, m6, m7, m8);
+        allProjects = Arrays.asList(parent, m1, m2, m3, m4, m5, m6, m7, m8, m9);
 
         Build build = new Build();
         Plugin plugin = new Plugin();
@@ -131,13 +144,17 @@ public class DependencyUtilsTest {
         plugin.setVersion(m7.getVersion());
         build.addPlugin(plugin);
         m5.setBuild(build);
+
+        m9.getModel().setDependencyManagement(newDependencyManagement(Arrays.asList(newDependency(m1))));
     }
+
 
     @Test
     public void collectAllDependents() throws Exception {
         HashSet<MavenProject> dependents = new HashSet<>();
         DependencyUtils.collectDependents(allProjects, m2, dependents);
-        assertThat(dependents).isEqualTo(Stream.of(parent, m1, m2, m3, m5, m6, m7, m8).collect(Collectors.toSet()));
+        assertThat(dependents).isEqualTo(Stream.of(parent, m1, m2, m3, m5, m6, m7, m8).collect(
+          Collectors.toSet()));
     }
 
     @Test
@@ -160,6 +177,7 @@ public class DependencyUtilsTest {
         DependencyUtils.collectDependents(allProjects, m3, dependents);
         assertThat(dependents).isEqualTo(Stream.of(parent, m1, m2, m3, m6, m7, m8).collect(Collectors.toSet()));
     }
+
 
     @Test
     public void collectTransitiveDependents() throws Exception {
@@ -208,10 +226,22 @@ public class DependencyUtilsTest {
     }
 
     @Test
+    public void getDependencyManagementDependencies() throws Exception {
+        Set<MavenProject> dependencies = DependencyUtils.getAllDependencies(allProjects, m9);
+        assertThat(dependencies).isEqualTo(Stream.of(m9, m1, m3, m4, m2).collect(Collectors.toSet()));
+    }
+
+    @Test
     public void collectDependenciesInSnapshot() throws Exception {
         HashSet<MavenProject> dependencies = new HashSet<>();
         DependencyUtils.collectDependenciesInSnapshot(allProjects, m6, dependencies);
         assertThat(dependencies).isEqualTo(Stream.of(m8).collect(Collectors.toSet()));
+    }
+
+    private DependencyManagement newDependencyManagement(List<Dependency> dependencies) {
+        DependencyManagement dependencyManagement = new DependencyManagement();
+        dependencyManagement.setDependencies(dependencies);
+        return dependencyManagement;
     }
 
     private static MavenProject newMavenProject(String groupId, String artefactId, String version,
